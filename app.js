@@ -26,7 +26,7 @@ const icons = {
 const svgIcon = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[k]||icons.rain}</svg>`;
 const fieldRecordings={
  rain:'https://upload.wikimedia.org/wikipedia/commons/3/3d/Rain.ogg',
- fire:'./assets/fire.mp3',
+ fire:'./assets/fire.mp3?v=20261102',
  wind:'https://upload.wikimedia.org/wikipedia/commons/2/2d/Howling_wind.ogg',
  ocean:'https://upload.wikimedia.org/wikipedia/commons/1/1f/Waves.ogg',
  forest:'https://upload.wikimedia.org/wikipedia/commons/3/38/Birds_forest.ogg',
@@ -104,7 +104,7 @@ async function init(){
  browserDiagnostics();
  $('addAudioUrl').addEventListener('click',addAudioFromUrl);
  $('audioUrl').addEventListener('keydown',e=>{if(e.key==='Enter')addAudioFromUrl();});
- state.library=soundData.map(([id,name,description])=>({id,name,description,icon:id,url:fieldRecordings[id],fallbackUrl:id==='fire'?'https://upload.wikimedia.org/wikipedia/commons/d/d8/Dry_grass_burning_in_open_fireplace.ogg':`./assets/${id}.mp3`,builtIn:true,duration:0}));
+ state.library=soundData.map(([id,name,description])=>({id,name,description,icon:id,url:fieldRecordings[id],fallbackUrl:id==='fire'?null:`./assets/${id}.mp3`,builtIn:true,duration:0}));
  for(const sound of state.library){state.sources.set(sound.id,sound); audioDuration(sound.url).then(d=>{sound.duration=d;});}
  showLibrary();renderTracks();
  if(location.protocol==='file:')setEngineInfo('Рекомендовано GitHub Pages','Редактор може відкриватися як HTML, але FFmpeg.wasm у деяких браузерах блокується з file://. Завантажте ці файли на GitHub Pages для надійного експорту.');
