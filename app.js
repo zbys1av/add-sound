@@ -10,7 +10,7 @@ const esc = text => String(text).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;',
 const state = {
   video:null, sources:new Map(), library:[], tracks:[], transition:2,
   ffmpeg:null, enginePromise:null, cancelled:false, busy:false, outputURL:null,
-  engineController:null, workerURL:null, pendingFFmpeg:null, originalAudioKnown:null, logs:[], qualityVerified:false
+  engineController:null, workerURL:null, pendingFFmpeg:null, originalAudioKnown:null, logs:[], qualityVerified:false, nextExportMode:"auto"
 };
 const players = new Map();
 let nextTrackId=0, sampleAudio=null, sampleId=null, previewTimer=null;
@@ -70,6 +70,7 @@ function browserDiagnostics(){
  if(missing.length)msg=`Браузеру бракує ${missing.join(', ')}. Швидкий експорт може бути недоступний; застосунок спробує FFmpeg.wasm.`;
  else if(firefox)msg='Firefox: швидкий експорт залежить від наявності аудіокодека WebCodecs. Якщо він недоступний, використаємо повільніший FFmpeg.wasm.';
  else if(safari)msg='Safari: підтримка кодеків і пам’яті залежить від версії та пристрою. Для складних файлів можливий резервний експорт FFmpeg.wasm.';
+ if(/Android|iPhone|iPad|iPod/i.test(ua))msg+=' На телефоні великі файли можуть перевищити доступну пам’ять. Найкраще працює MP4/H.264 у браузері з WebCodecs.';
  if(location.protocol==='file:')msg+=' Для стабільної роботи відкрийте застосунок через GitHub Pages.';
  const b=$('browserBanner');b.hidden=!msg;b.textContent=msg;
 }
@@ -134,11 +135,13 @@ async function loadVideo(file){
  if(!info)return;
  if(!Number.isFinite(info.duration)||info.duration<=0){notice('Не вдалося визначити тривалість цього відео.',true);URL.revokeObjectURL(newURL);if(oldURL){video.src=oldURL;video.load();}return;}
  state.video={file,url:newURL,duration:info.duration,width:info.width,height:info.height};
- state.originalAudioKnown=null;
+ state.originalAudioKnown=null;state.nextExportMode='auto';
  if(oldURL)URL.revokeObjectURL(oldURL);
  video.hidden=false;$('videoDrop').classList.add('has-video');$('videoDrop').querySelector('.drop-content').hidden=true;
  $('videoDetails').hidden=false;$('videoName').textContent=file.name;
  $('videoMeta').innerHTML=`<span>${fmt(info.duration)}</span><span>${info.width}×${info.height}</span><span>${(file.size/1048576).toFixed(1)} МБ</span>`;
+ const isSmartcut=/(?:smartcut|no[-_ ]?pause)/i.test(file.name);
+ $('workflowHint').textContent=isSmartcut?'Відео після No Pause Allowed: SoundLayer додасть тільки звук. Для MP4/H.264 спершу спробує швидкий експорт.':'Готове відео: монтаж, роздільність і закодовані кадри залишаються без змін. Для MP4/H.264 найкраще підходить швидкий режим.';
  $('originalToggle').disabled=false;setOriginalAudio();
  for(const t of state.tracks){t.start=clamp(t.start,0,Math.max(0,videoLen()-.1));t.duration=clamp(t.duration,.1,Math.max(.1,videoLen()-t.start));t.fadeIn=Math.min(t.fadeIn,t.duration/2);t.fadeOut=Math.min(t.fadeOut,t.duration/2);}
  renderTracks();notice('Відео готове. Додайте звукову доріжку.');
@@ -304,12 +307,31 @@ async function engineAssetURL(url,type,signal,progress){
  }
  return {url:URL.createObjectURL(blob),size:blob.size,cached:hit};
 }
+// The FFmpeg wrapper is loaded only when the user requests slow export.
+// No wrapper download during the normal fast path.
+let ffmpegWrapperPromise=null;
+function ensureFFmpegWrapper(){
+ if(window.FFmpegWASM?.FFmpeg)return Promise.resolve();
+ if(ffmpegWrapperPromise)return ffmpegWrapperPromise;
+ ffmpegWrapperPromise=new Promise((resolve,reject)=>{
+  const script=document.createElement('script');
+  script.src=`${CDN}/@ffmpeg/ffmpeg@${FFMPEG_WRAPPER_VERSION}/dist/umd/ffmpeg.js`;
+  script.async=true;
+  const timer=setTimeout(()=>reject(new Error('Не вдалося завантажити оболонку FFmpeg за 30 секунд.')),30000);
+  script.onload=()=>{clearTimeout(timer);window.FFmpegWASM?.FFmpeg?resolve():reject(new Error('Бібліотека FFmpeg завантажилась некоректно.'));};
+  script.onerror=()=>{clearTimeout(timer);reject(new Error('Не вдалося завантажити FFmpeg з CDN. Перевірте мережу.'));};
+  document.head.append(script);
+ }).catch(err=>{ffmpegWrapperPromise=null;throw err;});
+ return ffmpegWrapperPromise;
+}
 async function ensureEngine(){
  if(state.ffmpeg?.loaded)return state.ffmpeg;
  if(state.enginePromise)return state.enginePromise;
  const controller=new AbortController();state.engineController=controller;
  const signal=controller.signal;
  const job=(async()=>{
+  setEngineInfo('Підготовка запасного режиму','Завантажуємо FFmpeg тільки на ваш запит.');
+  await ensureFFmpegWrapper();
   if(!window.FFmpegWASM?.FFmpeg)throw new Error('Не завантажилася оболонка FFmpeg.wasm. Перевірте доступ до jsDelivr або блокувальник реклами.');
   const ffmpeg=new window.FFmpegWASM.FFmpeg();state.pendingFFmpeg=ffmpeg;
   const urls=[];
@@ -426,11 +448,12 @@ async function exportVideo(){
  $('cancelBtn').hidden=false;$('retryBtn').hidden=true;$('downloadLink').hidden=true;
  if(state.outputURL){URL.revokeObjectURL(state.outputURL);state.outputURL=null;}
  $('video').pause();stopAllAudio();stopSample();
+ const mode=state.nextExportMode;state.nextExportMode='auto';
  const video=state.video;const tracks=state.tracks.map(t=>({...t}));
  let ffmpeg,videoName='',names=[],outputName='';
  try{
   setExportStatus('Підготовка','Копіюємо відеопотік без повторного стиснення.',1);
-  if(!$('verifyQuality').checked&&window.soundLayerFastExport){
+  if(mode!=='slow'&&!$('verifyQuality').checked&&window.soundLayerFastExport){
    try{
     const fast=await window.soundLayerFastExport({
       video,tracks,sources:state.sources,
@@ -449,11 +472,19 @@ async function exportVideo(){
    }catch(fastError){
     if(state.cancelled)throw fastError;
     console.warn('Fast export unavailable, falling back to FFmpeg.wasm:',fastError);
-    setExportStatus('Запасний режим',`Швидкий шлях недоступний (${fastError.message}). Використовуємо FFmpeg.wasm; це може зайняти більше часу.`,4);
+    setExportStatus('Швидкий експорт недоступний',`Причина: ${fastError.message}. Відео не змінено. Якщо бажаєте, запустіть резервний FFmpeg.wasm — на телефоні він може працювати довго.`,0);
+    $('retryBtn').textContent='Запустити FFmpeg.wasm (повільно)';
+    $('retryBtn').hidden=false;return;
    }
   }
+  if(mode!=='slow'&&!$('verifyQuality').checked&&!window.soundLayerFastExport){
+   setExportStatus('Швидкий режим недоступний','Не завантажився швидкий браузерний рушій. Можна вручну спробувати FFmpeg.wasm.',0);
+   $('retryBtn').textContent='Запустити FFmpeg.wasm (повільно)';$('retryBtn').hidden=false;return;
+  }
   if($('verifyQuality').checked)setExportStatus('Контроль якості','Обрано SHA-256: необхідний повільніший FFmpeg.wasm, навіть якщо швидкий режим доступний.',5);
-  if(video.file.size>450*1048576)throw new Error('FFmpeg.wasm може вичерпати пам’ять на файлах понад 450 МБ. Для великих відео потрібен підтримуваний швидкий режим у Chromium/Edge без SHA-перевірки.');
+  const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const wasmLimit=mobile?180:450;
+  if(video.file.size>wasmLimit*1048576)throw new Error(`FFmpeg.wasm може вичерпати пам’ять цього пристрою на файлах понад ${wasmLimit} МБ. Використайте швидкий режим на сумісному браузері без SHA-перевірки.`);
   ffmpeg=await ensureEngine();
   if(state.cancelled)throw new Error('Експорт скасовано.');
   videoName=`soundlayer-input.${extFor(video.file.name,'mp4')}`;
@@ -555,9 +586,9 @@ $('originalToggle').addEventListener('change',setOriginalAudio);
 $('originalVolume').addEventListener('input',setOriginalAudio);
 $('crossfade').addEventListener('input',e=>{state.transition=Number(e.target.value);$('crossfadeLabel').textContent=state.transition+' с';});
 $('autoFade').addEventListener('click',autoFade);
-$('exportBtn').addEventListener('click',exportVideo);
+$('exportBtn').addEventListener('click',()=>{state.nextExportMode='auto';exportVideo();});
 $('cancelBtn').addEventListener('click',cancelExport);
-$('retryBtn').addEventListener('click',exportVideo);
+$('retryBtn').addEventListener('click',()=>{state.nextExportMode='slow';exportVideo();});
 $('video').addEventListener('play',()=>{if(sampleAudio)stopSample();syncAudios();if(previewTimer)clearInterval(previewTimer);previewTimer=setInterval(syncAudios,120);});
 $('video').addEventListener('pause',()=>{if(previewTimer)clearInterval(previewTimer);previewTimer=null;stopAllAudio();});
 $('video').addEventListener('ended',()=>{if(previewTimer)clearInterval(previewTimer);previewTimer=null;stopAllAudio();});

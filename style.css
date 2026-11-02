@@ -41,3 +41,5 @@
 .verify-option{display:flex;gap:9px;align-items:center;font-size:11px;color:#93a594;margin:0 2px 18px}
 .verify-option input{accent-color:#a5c897}
 @media(max-width:650px){.toolbar{margin:4px 0 9px}.url-line{flex-wrap:wrap}.url-line input{width:100%}}
+/* Stage-two workflow: unobtrusive handoff from No Pause Allowed. */
+.workflow-hint{margin:9px 0 5px;color:#a8c4a2;font-size:11px;line-height:1.5}
