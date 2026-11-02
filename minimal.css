@@ -1,0 +1,53 @@
+/* SoundLayer minimal neutral theme. Keeps original responsive layout. */
+:root{color-scheme:dark;--bg:#111315;--panel:#1a1d20;--panel2:#202326;--muted:#92999d;--line:#34383b;--accent:#d1d7d7;--bright:#f1f3f2;--text:#e7e9e9;--orange:#d0b59b;--danger:#d2a19a;--radius:13px}
+body{background:var(--bg);color:var(--text)}
+.app-shell{max-width:1160px}
+.panel,.sound-card,.track-card,.status-panel,.export-panel,dialog,.engine-banner,.browser-banner,.url-section,.youtube-preview{background:var(--panel);border-color:var(--line);box-shadow:none}
+.panel{border-radius:var(--radius);padding:23px}
+.panel-header h2,.timeline-heading h2,.export-message strong{font-weight:620;letter-spacing:-.45px}
+.step,.eyebrow,.track-index{color:var(--muted);letter-spacing:1.1px;font-weight:600}
+.panel-hint,.sounds-intro,.timeline-heading p,.timeline-tip,.track-field label,.track-loop,.upload-info,.meta-list span{color:var(--muted)}
+.video-drop,.audio-drop,.track-visual{background:#151719;border-color:#3a3f41}
+.video-drop.has-video{background:#0d0f10;border-color:var(--line)}
+.video-drop.dragover,.audio-drop.dragover{background:#242729;border-color:#b3bfc1}
+.drop-icon,.audio-drop-icon,.sound-icon,.export-icon{background:#292d30;color:#cdd2d2}
+.drop-icon{border-radius:12px}
+.btn-secondary,.export-btn,.download-btn{background:#d1d5d4;color:#171a1c;border-radius:9px;font-weight:680}
+.btn-secondary:hover,.export-btn:hover:enabled,.download-btn:hover{background:#eff0ef}
+.btn-secondary span{color:#343739}
+.sound-card{background:#202326;padding:12px;border-radius:10px}
+.sound-card:hover{background:#25292c;border-color:#6d7678}
+.sound-icon{border-radius:9px}
+.sound-text small{color:#8c969a}
+.square-btn,.square-btn.preview,.track-actions button,.btn-outline{background:#2a2e31;color:#d6dbdb;border-color:#40464a}
+.square-btn:hover,.track-actions button:hover,.btn-outline:hover:enabled{background:#383e42}
+.original-audio,.timeline-ruler,.upload-divider:before,.upload-divider:after{border-color:var(--line)}
+.toggle span{background:#414648}
+.toggle input:checked+span{background:#899694}
+.toggle input:checked+span:before{background:#f4f5f5}
+.volume-value,.track-volume .volume-display,.text-btn,.transition-controls div span{color:#cdd2d1}
+input[type=range]{background:#454b4e;accent-color:#bdc8c7}
+input[type=range]::-webkit-slider-thumb{background:#24282a;border-color:#d0d6d5}
+input[type=range]::-moz-range-thumb{background:#24282a;border-color:#d0d6d5}
+.track-card{border-radius:10px}
+.track-visual{border-color:var(--line)}
+.track-clip{background:#9ca9a8}
+.track-clip:after{background:repeating-linear-gradient(90deg,transparent 0 9px,#2830312e 9px 10px)}
+.track-clip .fade-in{background:linear-gradient(100deg,#16191ad9,transparent)}
+.track-clip .fade-out{background:linear-gradient(260deg,#16191ad9,transparent)}
+.track-field input[type=number]{background:#151719;border-color:#444b4e}
+.track-field input[type=number]:focus{outline:1px solid #cbd2d0}
+.export-panel{background:#1e2224;border-color:#3d4445}
+.export-icon{color:#d8dedd}
+.status-panel,.engine-banner{border-radius:12px}
+.progress-bar{background:#343b3c}
+.progress-bar div{background:#c8cfce}
+.engine-banner{color:var(--text)}
+.engine-spinner{border-top-color:#cbd1d1}
+footer{color:#737b7f}
+dialog{border-radius:14px}
+dialog code{color:#d0d8d6}
+.url-section input,#audioUrl{background:#191c1e!important;border-color:#3a4143!important;color:#e7e9e9!important}
+.tracks-empty .empty-wave,.count{color:#b7c0bf;background:transparent}
+:focus-visible{outline:2px solid #c1c8c8;outline-offset:3px}
+@media(max-width:650px){.app-shell{width:calc(100% - 22px)}.panel{padding:16px}.sound-card{padding:11px 9px}}
